@@ -2,6 +2,7 @@ const fs = require("fs");
 const express = require("express");
 import { Request, Response, NextFunction } from "express-serve-static-core";
 import {
+  BASIC_AUTH_REALM,
   COOKIE_OPTIONS,
   QUERY_PARAMS,
   ROUTES,
@@ -95,10 +96,90 @@ function handleRequest(
   response.redirect(`${responsePath}${referrerQueryParams}`);
 }
 
+function handleBasicAuthenticationRequest(
+  request: Request,
+  response: Response,
+) {
+  console.log(`${request.method} received for:`, ROUTES.BASIC_AUTH);
+
+  const credentials = parseBasicAuthorizationHeader(
+    request.get("Authorization"),
+  );
+
+  if (!credentials?.username || !credentials.password) {
+    response
+      .set(
+        "WWW-Authenticate",
+        `Basic realm="${BASIC_AUTH_REALM}", charset="UTF-8"`,
+      )
+      .status(401)
+      .send("Unauthorized");
+
+    return;
+  }
+
+  const responsePath = "/forms/response/login-success";
+
+  response.cookie(
+    STORED_VALUE_KEYS.REFERRER_REQUEST_BODY,
+    JSON.stringify(credentials),
+    {
+      path: responsePath,
+      ...COOKIE_OPTIONS,
+    },
+  );
+
+  const requestHost = request.get("Host") || "";
+  let queryParams = "";
+
+  try {
+    const url = new URL(`https://${requestHost}`);
+    url.searchParams.append(QUERY_PARAMS.HIDE_PAGINATION, "true");
+    url.searchParams.append(QUERY_PARAMS.HIDE_HEADER, "true");
+    queryParams = url.search;
+  } catch {
+    /* no-op; silently swallow errors */
+  }
+
+  // referrer query param passthrough
+  response.redirect(`${responsePath}${queryParams}`);
+}
+
+function parseBasicAuthorizationHeader(authorizationHeader?: string) {
+  const encodedCredentials = authorizationHeader?.match(
+    /^Basic +([A-Za-z0-9+/=]+)$/,
+  )?.[1];
+
+  if (!encodedCredentials) {
+    return null;
+  }
+
+  const decodedCredentials = Buffer.from(encodedCredentials, "base64").toString(
+    "utf8",
+  );
+
+  const separatorIndex = decodedCredentials.indexOf(":");
+
+  if (separatorIndex < 0) {
+    return null;
+  }
+
+  return {
+    username: decodedCredentials.slice(0, separatorIndex),
+    password: decodedCredentials.slice(separatorIndex + 1),
+  };
+}
+
 app
   .route(ROUTES.ACCOUNT)
   .post((request: Request, response: Response) =>
     handleRequest(request, response, ROUTES.ACCOUNT),
+  );
+
+app
+  .route(ROUTES.BASIC_AUTH)
+  .get((request: Request, response: Response) =>
+    handleBasicAuthenticationRequest(request, response),
   );
 
 app

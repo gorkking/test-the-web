@@ -2,6 +2,7 @@ import { CookieOptions } from "express-serve-static-core";
 
 export const ROUTES = {
   ACCOUNT: "/account",
+  BASIC_AUTH: "/basic-auth",
   IDENTITY: "/identity",
   LOGIN: "/login",
   PAYMENT: "/payment",
@@ -10,6 +11,9 @@ export const ROUTES = {
   WELL_KNOWN_CHANGE_PASSWORD: "/.well-known/change-password",
   UPDATE_PASSWORD_FORM: "/forms/update/update-password",
 };
+
+// The protection space presented to the user in the browser's native credential dialog
+export const BASIC_AUTH_REALM = "Test the Web";
 
 export const QUERY_PARAMS = {
   HIDE_PAGINATION: "docusaurus-data-hide-pagination",
